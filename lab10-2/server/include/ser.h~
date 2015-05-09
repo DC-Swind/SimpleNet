@@ -1,0 +1,30 @@
+#ifndef __SER_H__
+#define __SER_H__
+
+#define MAX_THREADS 32
+//#define Host "127.0.0.1"
+#define Host "192.168.1.100"
+
+#include <pthread.h>
+#include <message.h>
+
+struct Thread{
+    pthread_t thread;
+    int connsocket;
+    int valid;
+    struct Login user;
+    int logined;
+    char requestgame;//0-no request, 1-game1
+    int gaming; //0-free,1-game1,...
+    int pkwith; //-1 - free, >=0 - with index
+    char myrequestans;//1-success,2-failed,3-waiting
+    pthread_mutex_t mutexsend;
+};
+
+extern int threadsN;
+extern struct Thread threads[MAX_THREADS];
+extern pthread_mutex_t mutex;
+extern pthread_mutex_t mutexuserlist;
+extern int userlistChanged;
+
+#endif

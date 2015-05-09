@@ -1,0 +1,219 @@
+#include <sys/socket.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+
+#include "../common/constants.h"
+#include "../topology/topology.h"
+#include "dvtable.h"
+
+//这个函数动态创建距离矢量表.
+//距离矢量表包含n+1个条目, 其中n是这个节点的邻居数,剩下1个是这个节点本身.
+//距离矢量表中的每个条目是一个dv_t结构,它包含一个源节点ID和一个有N个dv_entry_t结构的数组, 其中N是重叠网络中节点总数.
+//每个dv_entry_t包含一个目的节点地址和从该源节点到该目的节点的链路代价.
+//距离矢量表也在这个函数中初始化.从这个节点到其邻居的链路代价使用提取自topology.dat文件中的直接链路代价初始化.
+//其他链路代价被初始化为INFINITE_COST.
+//该函数返回动态创建的距离矢量表.
+dv_t* dvtable_create()
+{
+	dv = malloc(sizeof(dv_t));
+	dv->nodeID = topology_getMyNodeID();
+	dv->dvEntry = dv_entry;
+	int num = topology_getNodeNum();
+	int i=0;
+	int* node_array = topology_getNbrArray();
+	for (i=0;i<num;i++)
+	{
+		dv_entry[i].nodeID = node_array[i];
+		if (node_array[i]==dv->nodeID)
+			dv_entry[i].cost = 0;
+		else
+			dv_entry[i].cost = INFINITE_COST;
+	}
+	
+	FILE *fp = fopen("topology/topology.dat", "r");
+	
+
+	while (!feof(fp))
+	{
+		char ip1[20],ip2[20];
+        	int len;
+        	fscanf(fp, "%s", ip1);
+       	 	fscanf(fp, "%s", ip2);
+        	fscanf(fp, "%d", &len);
+		struct in_addr addr1,addr2;
+		inet_aton(ip1,addr1);
+		inet_aton(ip2,addr2);
+
+		
+		int id1 = topology_getNodeIDfromip(&addr1);
+		int id2 = topology_getNodeIDfromip(&addr2);
+		
+		if (dv->nodeID==id1)
+		{
+			for (i=0;i<num;i++)
+			{
+				if (id2 == dv_entry[i].nodeID)
+					dv_entry[i].cost = len;
+				else;
+			}
+			LinkList* Node = malloc(sizeof(LinkList));
+			Node->dv_nbr = malloc(sizeof(dv_t));
+			Node->dv_nbr->dvEntry = malloc(num*sizeof(dv_entry_t));
+			Node->dv_nbr->nodeID = id2;
+			for (i=0;i<num;i++)
+			{
+				Node->dv_nbr->dvEntry->nodeID = node_array[i];
+				if (node_array[i]==Node->dv_nbr->nodeID)
+					Node->dv_nbr->dvEntry->cost = 0;
+				else
+					if (node_array[i]==dv->nodeID)
+						Node->dv_nbr->dvEntry->cost = len;
+					else
+						Node->dv_nbr->dvEntry->cost = INFINITE_COST;
+			}
+			Node->next = NULL;
+			if (lhead == NULL)
+				lhead = Node;
+			else
+				ltail->next = Node;
+			ltail = Node;
+		}else;
+		if (dv->nodeID==id2)
+		{
+			for (i=0;i<num;i++)
+			{
+				if (id1 == dv_entry[i].nodeID)
+					dv_entry[i].cost = len;
+				else;
+			}
+			LinkList* Node = malloc(sizeof(LinkList));
+			Node->dv_nbr = malloc(sizeof(dv_t));
+			Node->dv_nbr->dvEntry = malloc(num*sizeof(dv_entry_t));
+			Node->dv_nbr->nodeID = id1;
+			for (i=0;i<num;i++)
+			{
+				Node->dv_nbr->dvEntry->nodeID = node_array[i];
+				if (node_array[i]==Node->dv_nbr->nodeID)
+					Node->dv_nbr->dvEntry->cost = 0;
+				else
+					if (node_array[i]==dv->nodeID)
+						Node->dv_nbr->dvEntry->cost = len;
+					else
+						Node->dv_nbr->dvEntry->cost = INFINITE_COST;
+			}
+			Node->next = NULL;
+			if (lhead == NULL)
+				lhead = Node;
+			else
+				ltail->next = Node;
+			ltail = Node;
+		}else;
+	}
+
+	
+  return 0;
+}
+
+//这个函数删除距离矢量表.
+//它释放所有为距离矢量表动态分配的内存.
+void dvtable_destroy(dv_t* dvtable)
+{
+	free(dv);
+	dv=NULL;
+  return;
+}
+
+//这个函数设置距离矢量表中2个节点之间的链路代价.
+//如果这2个节点在表中发现了,并且链路代价也被成功设置了,就返回1,否则返回-1.
+int dvtable_setcost(dv_t* dvtable,int fromNodeID,int toNodeID, unsigned int cost)
+{
+	int num = topology_getNodeNum();
+	if (fromNodeID==dv->nodeID)
+	{
+		int i;
+		for(i=0;i<num;i++)
+			if (dv_entry[i].nodeID==toNodeID)
+			{
+				dv_entry[i].cost = cost;
+				return 1;
+			}else;
+	}else
+	{
+		LinkList* point = lhead;
+		for (;point!=NULL;point=point->next)
+		{
+			if (point->dv_nbr->nodeID == fromNodeID)
+			{
+				int i;
+				for (i=0;i<num;i++)
+					if (point->dv_nbr->dvEntry[i].nodeID==toNodeID)
+					{
+						point->dv_nbr->dvEntry[i].cost = cost;
+						return 1;
+					}
+			}else;
+		}
+	}
+  return -1;
+}
+
+//这个函数返回距离矢量表中2个节点之间的链路代价.
+//如果这2个节点在表中发现了,就返回链路代价,否则返回INFINITE_COST.
+unsigned int dvtable_getcost(dv_t* dvtable, int fromNodeID, int toNodeID)
+{
+		int num = topology_getNodeNum();
+	if (fromNodeID==dv->nodeID)
+	{
+		int i;
+		for(i=0;i<num;i++)
+			if (dv_entry[i].nodeID==toNodeID)
+			{
+				return dv_entry[i].cost;
+				
+			}else;
+	}else
+	{
+		LinkList* point = lhead;
+		for (;point!=NULL;point=point->next)
+		{
+			if (point->dv_nbr->nodeID == fromNodeID)
+			{
+				int i;
+				for (i=0;i<num;i++)
+					if (point->dv_nbr->dvEntry[i].nodeID==toNodeID)
+					{
+						return point->dv_nbr->dvEntry[i].cost;
+						
+					}
+			}else;
+		}
+	}
+  return INFINITE_COST;
+}
+
+//这个函数打印距离矢量表的内容.
+void dvtable_print(dv_t* dvtable)
+{
+	int num = topology_getNodeNum();
+	printf("srcNodeID: %d, ",dv->nodeID);
+	int i;
+	for (i=0;i<num;i++)
+	{
+		printf("to %d cost %d, ",dv_entry[i].nodeID,dv_entry[i].cost);
+	}
+	printf("\n");
+	LinkList* point = lhead;
+	for (;point!=NULL;point=point->next)
+	{
+		printf("srcNodeID: %d, ",point->dv_nbr->nodeID);
+		int i;
+		for (i=0;i<num;i++)
+		{
+			printf("to %d cost %d, ",point->dv_nbr->dvEntry[i].nodeID,point->dv_nbr->dvEntry[i].cost);
+		}
+		printf("\n");
+	}
+  return;
+}

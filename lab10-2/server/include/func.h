@@ -1,0 +1,17 @@
+int getThreadSlot();
+void init();
+int datacpy(char *a, char *b, int size);
+int contains(char *a,char *b);
+int checkLogin(struct Login* login,int index);
+void *sendUserlist();
+int userlistchanged();
+int requestack(int index,char status);
+int requestconn(int a,char *bname,char game);
+int sendhandshake4(int index,char status);
+int logout(int index);
+int gameOne(int index);
+int gameTwo(int index);
+int updategaming(int index);
+int sendtalk(int index,char*to,char* content);
+int exitcurrentgame(int index);
+int endgame(int index);
